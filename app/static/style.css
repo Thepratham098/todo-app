@@ -1,0 +1,56 @@
+body {
+    background: #f5f6fa;
+    font-family: "Segoe UI", sans-serif;
+}
+
+
+/* SIDEBAR */
+
+.sidebar {
+    width: 250px;
+    height: 100vh;
+    background: #111827;
+    color: white;
+}
+
+.sidebar .nav-link {
+    color: #cbd5e1;
+}
+
+.sidebar .nav-link:hover {
+    color: white;
+}
+
+
+/* AVATAR */
+
+.avatar {
+    width: 60px;
+    border-radius: 50%;
+}
+
+
+/* MAIN */
+
+.main-content {
+    background: #f5f6fa;
+}
+
+
+/* TASK CARD */
+
+.task-card {
+    border: none;
+    border-radius: 12px;
+    transition: 0.2s;
+}
+
+.task-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+}
+
+.completed {
+    background: #d1fae5;
+    text-decoration: line-through;
+}
