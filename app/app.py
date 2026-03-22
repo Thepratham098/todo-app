@@ -3,6 +3,7 @@ import psycopg2
 import time
 from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
+import os
 
 app = Flask(__name__)
 
@@ -10,20 +11,28 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = str(time.time())
 app.config['SESSION_PERMANENT'] = False
 
-# ---------- DB ----------
+# ---------- DB CONNECTION ----------
 def get_db_connection():
     while True:
         try:
-            return psycopg2.connect(
-                host="db",
-                database="todo_db",
-                user="postgres",
-                password="postgres"
-            )
-        except:
-            print("Waiting for DB...")
+            DATABASE_URL = os.environ.get("DATABASE_URL")
+
+            if DATABASE_URL:
+                # 🌍 Production (Railway / Render)
+                return psycopg2.connect(DATABASE_URL)
+            else:
+                # 🐳 Local Docker
+                return psycopg2.connect(
+                    host="db",
+                    database="todo_db",
+                    user="postgres",
+                    password="postgres"
+                )
+        except Exception as e:
+            print("Waiting for DB...", e)
             time.sleep(2)
 
+# ---------- CREATE TABLES ----------
 @app.before_request
 def create_tables():
     conn = get_db_connection()
@@ -68,8 +77,10 @@ def register():
         conn = get_db_connection()
         cur = conn.cursor()
 
-        cur.execute("INSERT INTO users (username,password) VALUES (%s,%s)",
-                    (data['username'], hashed))
+        cur.execute(
+            "INSERT INTO users (username,password) VALUES (%s,%s)",
+            (data['username'], hashed)
+        )
 
         conn.commit()
         cur.close()
@@ -89,7 +100,10 @@ def login():
         conn = get_db_connection()
         cur = conn.cursor()
 
-        cur.execute("SELECT * FROM users WHERE username=%s",(data['username'],))
+        cur.execute(
+            "SELECT * FROM users WHERE username=%s",
+            (data['username'],)
+        )
         user = cur.fetchone()
 
         cur.close()
@@ -99,6 +113,7 @@ def login():
             session['user_id'] = user[0]
             session['username'] = user[1]
             return redirect('/')
+
         return "Invalid credentials"
 
     return render_template('login.html')
@@ -108,6 +123,7 @@ def logout():
     session.clear()
     return redirect('/login')
 
+# ---------- PROFILE ----------
 @app.route('/profile')
 def profile():
     if 'user_id' not in session:
@@ -134,34 +150,13 @@ def profile():
     """, (session['user_id'], one_week))
     completed = cur.fetchone()[0]
 
-    # 📊 Tasks per day (last 7 days)
-    cur.execute("""
-        SELECT DATE(created_at), COUNT(*)
-        FROM tasks
-        WHERE user_id=%s AND created_at >= %s
-        GROUP BY DATE(created_at)
-        ORDER BY DATE(created_at)
-    """, (session['user_id'], one_week))
-
-    rows = cur.fetchall()
-
     cur.close()
     conn.close()
-
-    # Format for chart
-    dates = []
-    counts = []
-
-    for r in rows:
-        dates.append(r[0].strftime("%d %b"))
-        counts.append(r[1])
 
     return render_template(
         'profile.html',
         total=total,
-        completed=completed,
-        dates=dates,
-        counts=counts
+        completed=completed
     )
 
 # ---------- TASKS ----------
@@ -234,7 +229,10 @@ def complete(id):
     conn = get_db_connection()
     cur = conn.cursor()
 
-    cur.execute("UPDATE tasks SET completed=NOT completed WHERE id=%s",(id,))
+    cur.execute(
+        "UPDATE tasks SET completed=NOT completed WHERE id=%s",
+        (id,)
+    )
 
     conn.commit()
     cur.close()
@@ -244,4 +242,5 @@ def complete(id):
 
 # ---------- RUN ----------
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    port = int(os.environ.get("PORT", 5000))  # 🌍 for Railway
+    app.run(host="0.0.0.0", port=port)
